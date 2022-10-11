@@ -2,7 +2,6 @@
 import os
 import sys
 
-
 here = os.path.abspath(os.path.dirname(__file__))
 
 
@@ -18,7 +17,6 @@ def get_about():
 
 about = get_about()
 
-
 try:
     from setuptools import setup
 except ImportError:
@@ -32,9 +30,8 @@ elif sys.argv[-1] == "docs":
     os.system("sphinx-build docs docs/_build")
     sys.exit()
 
-
 setup(
-    name='mido',
+    name='mido_fix',
     version=about['__version__'],
     description='MIDI Objects for Python',
     long_description=open('README.rst', 'rt').read(),
@@ -45,18 +42,18 @@ setup(
     package_data={'': ['LICENSE']},
     package_dir={'mido': 'mido'},
     packages=['mido', 'mido.backends'],
-    scripts=['bin/mido-play',
-             'bin/mido-ports',
-             'bin/mido-serve',
-             'bin/mido-connect'],
+    scripts=[
+        'bin/mido-play', 'bin/mido-ports', 'bin/mido-serve', 'bin/mido-connect'
+    ],
     include_package_data=True,
     install_requires=[],
     extras_require={
-        'dev': ['check-manifest>=0.35',
-                'flake8>=3.4.1',
-                'pytest>=3.2.2',
-                'sphinx>=1.6.3',
-                ],
+        'dev': [
+            'check-manifest>=0.35',
+            'flake8>=3.4.1',
+            'pytest>=3.2.2',
+            'sphinx>=1.6.3',
+        ],
         'ports': ['python-rtmidi>=1.1.0']
     },
     zip_safe=False,
