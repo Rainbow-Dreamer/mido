@@ -31,57 +31,60 @@ def _reverse_table(table):
     return {value: key for (key, value) in table.items()}
 
 
-_key_signature_decode = {(-7, 0): 'Cb',
-                         (-6, 0): 'Gb',
-                         (-5, 0): 'Db',
-                         (-4, 0): 'Ab',
-                         (-3, 0): 'Eb',
-                         (-2, 0): 'Bb',
-                         (-1, 0): 'F',
-                         (0, 0): 'C',
-                         (1, 0): 'G',
-                         (2, 0): 'D',
-                         (3, 0): 'A',
-                         (4, 0): 'E',
-                         (5, 0): 'B',
-                         (6, 0): 'F#',
-                         (7, 0): 'C#',
-                         (-7, 1): 'Abm',
-                         (-6, 1): 'Ebm',
-                         (-5, 1): 'Bbm',
-                         (-4, 1): 'Fm',
-                         (-3, 1): 'Cm',
-                         (-2, 1): 'Gm',
-                         (-1, 1): 'Dm',
-                         (0, 1): 'Am',
-                         (1, 1): 'Em',
-                         (2, 1): 'Bm',
-                         (3, 1): 'F#m',
-                         (4, 1): 'C#m',
-                         (5, 1): 'G#m',
-                         (6, 1): 'D#m',
-                         (7, 1): 'A#m',
-                         }
+_key_signature_decode = {
+    (-7, 0): 'Cb',
+    (-6, 0): 'Gb',
+    (-5, 0): 'Db',
+    (-4, 0): 'Ab',
+    (-3, 0): 'Eb',
+    (-2, 0): 'Bb',
+    (-1, 0): 'F',
+    (0, 0): 'C',
+    (1, 0): 'G',
+    (2, 0): 'D',
+    (3, 0): 'A',
+    (4, 0): 'E',
+    (5, 0): 'B',
+    (6, 0): 'F#',
+    (7, 0): 'C#',
+    (-7, 1): 'Abm',
+    (-6, 1): 'Ebm',
+    (-5, 1): 'Bbm',
+    (-4, 1): 'Fm',
+    (-3, 1): 'Cm',
+    (-2, 1): 'Gm',
+    (-1, 1): 'Dm',
+    (0, 1): 'Am',
+    (1, 1): 'Em',
+    (2, 1): 'Bm',
+    (3, 1): 'F#m',
+    (4, 1): 'C#m',
+    (5, 1): 'G#m',
+    (6, 1): 'D#m',
+    (7, 1): 'A#m',
+}
 
 _key_signature_encode = _reverse_table(_key_signature_decode)
 
-_smpte_framerate_decode = {0: 24,
-                           1: 25,
-                           2: 29.97,
-                           3: 30,
-                           }
+_smpte_framerate_decode = {
+    0: 24,
+    1: 25,
+    2: 29.97,
+    3: 30,
+}
 
 _smpte_framerate_encode = _reverse_table(_smpte_framerate_decode)
 
 
 def signed(to_type, n):
-    formats = {'byte': 'Bb',
-               'short': 'Hh',
-               'long': 'Ll',
-               'ubyte': 'bB',
-               'ushort': 'hH',
-               'ulong': 'lL'
-               }
+    formats = {
+        'byte': 'Bb',
+        'short': 'Hh',
+        'long': 'Ll',
+        'ubyte': 'bB',
+        'ushort': 'hH',
+        'ulong': 'lL'
+    }
 
     try:
         pack_format, unpack_format = formats[to_type]
@@ -245,7 +248,8 @@ class MetaSpec_channel_prefix(MetaSpec):
     defaults = [0]
 
     def decode(self, message, data):
-        message.channel = data[0]
+        if data:
+            message.channel = data[0]
 
     def encode(self, message):
         return [message.channel]
@@ -292,7 +296,8 @@ class MetaSpec_set_tempo(MetaSpec):
     defaults = [500000]
 
     def decode(self, message, data):
-        message.tempo = (data[0] << 16) | (data[1] << 8) | (data[2])
+        if data:
+            message.tempo = (data[0] << 16) | (data[1] << 8) | (data[2])
 
     def encode(self, message):
         tempo = message.tempo
@@ -304,31 +309,27 @@ class MetaSpec_set_tempo(MetaSpec):
 
 class MetaSpec_smpte_offset(MetaSpec):
     type_byte = 0x54
-    attributes = ['frame_rate',
-                  'hours',
-                  'minutes',
-                  'seconds',
-                  'frames',
-                  'sub_frames'
-                  ]
+    attributes = [
+        'frame_rate', 'hours', 'minutes', 'seconds', 'frames', 'sub_frames'
+    ]
     # TODO: What are some good defaults?
     defaults = [24, 0, 0, 0, 0, 0]
 
     def decode(self, message, data):
-        message.frame_rate = _smpte_framerate_decode[(data[0] >> 6)]
-        message.hours = (data[0] & 0x3f)
-        message.minutes = data[1]
-        message.seconds = data[2]
-        message.frames = data[3]
-        message.sub_frames = data[4]
+        if data:
+            message.frame_rate = _smpte_framerate_decode[(data[0] >> 6)]
+            message.hours = (data[0] & 0x3f)
+            message.minutes = data[1]
+            message.seconds = data[2]
+            message.frames = data[3]
+            message.sub_frames = data[4]
 
     def encode(self, message):
         frame_rate_lookup = _smpte_framerate_encode[message.frame_rate] << 6
-        return [frame_rate_lookup | message.hours,
-                message.minutes,
-                message.seconds,
-                message.frames,
-                message.sub_frames]
+        return [
+            frame_rate_lookup | message.hours, message.minutes,
+            message.seconds, message.frames, message.sub_frames
+        ]
 
     def check(self, name, value):
         if name == 'frame_rate':
@@ -348,31 +349,33 @@ class MetaSpec_smpte_offset(MetaSpec):
 class MetaSpec_time_signature(MetaSpec):
     type_byte = 0x58
     # TODO: these need more sensible names.
-    attributes = ['numerator',
-                  'denominator',
-                  'clocks_per_click',
-                  'notated_32nd_notes_per_beat']
+    attributes = [
+        'numerator', 'denominator', 'clocks_per_click',
+        'notated_32nd_notes_per_beat'
+    ]
     defaults = [4, 4, 24, 8]
 
     def decode(self, message, data):
-        message.numerator = data[0]
-        message.denominator = 2 ** data[1]
-        message.clocks_per_click = data[2]
-        message.notated_32nd_notes_per_beat = data[3]
+        if data:
+            message.numerator = data[0]
+            message.denominator = 2**data[1]
+            message.clocks_per_click = data[2]
+            message.notated_32nd_notes_per_beat = data[3]
 
     def encode(self, message):
-        return [message.numerator,
-                int(math.log(message.denominator, 2)),
-                message.clocks_per_click,
-                message.notated_32nd_notes_per_beat,
-                ]
+        return [
+            message.numerator,
+            int(math.log(message.denominator, 2)),
+            message.clocks_per_click,
+            message.notated_32nd_notes_per_beat,
+        ]
 
     def check(self, name, value):
         if name == 'denominator':
             # This allows for the ridiculous time signature of
             # 4/57896044618658097711785492504343953926634...
             #   992332820282019728792003956564819968
-            check_int(value, 1, 2 ** 255)
+            check_int(value, 1, 2**255)
             encoded = math.log(value, 2)
             encoded_int = int(encoded)
             if encoded != encoded_int:
@@ -387,18 +390,19 @@ class MetaSpec_key_signature(MetaSpec):
     defaults = ['C']
 
     def decode(self, message, data):
-        key = signed('byte', data[0])
-        mode = data[1]
-        try:
-            message.key = _key_signature_decode[(key, mode)]
-        except KeyError:
-            if key < 7:
-                msg = ('Could not decode key with {} '
-                       'flats and mode {}'.format(abs(key), mode))
-            else:
-                msg = ('Could not decode key with {} '
-                       'sharps and mode {}'.format(key, mode))
-            raise KeySignatureError(msg)
+        if data:
+            key = signed('byte', data[0])
+            mode = data[1]
+            try:
+                message.key = _key_signature_decode[(key, mode)]
+            except KeyError:
+                if key < 7:
+                    msg = ('Could not decode key with {} '
+                           'flats and mode {}'.format(abs(key), mode))
+                else:
+                    msg = ('Could not decode key with {} '
+                           'sharps and mode {}'.format(key, mode))
+                raise KeySignatureError(msg)
 
     def encode(self, message):
         key, mode = _key_signature_encode[message.key]
@@ -522,8 +526,8 @@ class MetaMessage(BaseMessage):
         elif name in self_vars:
             raise AttributeError('{} attribute is read only'.format(name))
         else:
-            raise AttributeError(
-                '{} message has no attribute {}'.format(self.type, name))
+            raise AttributeError('{} message has no attribute {}'.format(
+                self.type, name))
 
     __setattr__ = _setattr
 
@@ -540,6 +544,7 @@ class MetaMessage(BaseMessage):
 
 
 class UnknownMetaMessage(MetaMessage):
+
     def __init__(self, type_byte, data=None, time=0):
         if data is None:
             data = ()
@@ -550,7 +555,8 @@ class UnknownMetaMessage(MetaMessage):
             'type': 'unknown_meta',
             'type_byte': type_byte,
             'data': data,
-            'time': time})
+            'time': time
+        })
 
     def __repr__(self):
         fmt = 'UnknownMetaMessage(type_byte={}, data={}, time={})'

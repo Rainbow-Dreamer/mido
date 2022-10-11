@@ -16,6 +16,7 @@ http://www.sonicspot.com/guide/midifiles.html
 """
 
 from __future__ import print_function, division
+import os
 import io
 import time
 import string
@@ -47,6 +48,7 @@ def print_byte(byte, pos=0):
 
 
 class DebugFileWrapper(object):
+
     def __init__(self, file):
         self.file = file
 
@@ -79,6 +81,14 @@ def read_bytes(infile, size):
     if size > MAX_MESSAGE_LENGTH:
         raise IOError('Message length {} exceeds maximum length {}'.format(
             size, MAX_MESSAGE_LENGTH))
+    current_position = infile.tell()
+    result_size = current_position + size
+    if not isinstance(infile, io.BytesIO):
+        file_size = os.fstat(infile.fileno()).st_size
+    else:
+        file_size = infile.getbuffer().nbytes
+    if result_size >= file_size:
+        size = file_size - current_position
     return [read_byte(infile) for _ in range(size)]
 
 
@@ -93,6 +103,7 @@ def _dbg(text=''):
 #
 # 2. the chunk module assumes that chunks are padded to the nearest
 # multiple of 2. This is not true of MIDI files.
+
 
 def read_chunk_header(infile):
     header = infile.read(8)
@@ -127,6 +138,8 @@ def read_message(infile, status_byte, peek_data, delta, clip=False):
     # Subtract 1 for status byte.
     size = spec['length'] - 1 - len(peek_data)
     data_bytes = peek_data + read_bytes(infile, size)
+    if not data_bytes:
+        return
 
     if clip:
         data_bytes = [byte if byte < 127 else 127 for byte in data_bytes]
@@ -135,7 +148,10 @@ def read_message(infile, status_byte, peek_data, delta, clip=False):
             if byte > 127:
                 raise IOError('data byte must be in range 0..127')
 
-    return Message.from_bytes([status_byte] + data_bytes, time=delta)
+    try:
+        return Message.from_bytes([status_byte] + data_bytes, time=delta)
+    except ValueError:
+        return
 
 
 def read_sysex(infile, delta, clip=False):
@@ -157,8 +173,14 @@ def read_sysex(infile, delta, clip=False):
 
 def read_variable_int(infile):
     delta = 0
-
     while True:
+        current_position = infile.tell()
+        if not isinstance(infile, io.BytesIO):
+            file_size = os.fstat(infile.fileno()).st_size
+        else:
+            file_size = infile.getbuffer().nbytes
+        if current_position == file_size:
+            break
         byte = read_byte(infile)
         delta = (delta << 7) | (byte & 0x7f)
         if byte < 0x80:
@@ -168,11 +190,20 @@ def read_variable_int(infile):
 def read_meta_message(infile, delta):
     meta_type = read_byte(infile)
     length = read_variable_int(infile)
+    if length is None:
+        return
     data = read_bytes(infile, length)
     return build_meta_message(meta_type, data, delta)
 
 
 def read_track(infile, debug=False, clip=False):
+    if not isinstance(infile, io.BytesIO):
+        file_size = os.fstat(infile.fileno()).st_size
+    else:
+        file_size = infile.getbuffer().nbytes
+    if infile.tell() == file_size:
+        return
+
     track = MidiTrack()
 
     name, size = read_chunk_header(infile)
@@ -192,6 +223,9 @@ def read_track(infile, debug=False, clip=False):
         if infile.tell() - start == size:
             break
 
+        if infile.tell() == file_size:
+            break
+
         if debug:
             _dbg('Message:')
 
@@ -200,6 +234,8 @@ def read_track(infile, debug=False, clip=False):
         if debug:
             _dbg('-> delta={}'.format(delta))
 
+        if infile.tell() == file_size:
+            break
         status_byte = read_byte(infile)
 
         if status_byte < 0x80:
@@ -222,7 +258,8 @@ def read_track(infile, debug=False, clip=False):
         else:
             msg = read_message(infile, status_byte, peek_data, delta, clip)
 
-        track.append(msg)
+        if msg:
+            track.append(msg)
 
         if debug:
             _dbg('-> {!r}'.format(msg))
@@ -294,13 +331,16 @@ def get_seconds_per_tick(tempo, ticks_per_beat):
 
 
 class MidiFile(object):
-    def __init__(self, filename=None, file=None,
-                 type=1, ticks_per_beat=DEFAULT_TICKS_PER_BEAT,
+
+    def __init__(self,
+                 filename=None,
+                 file=None,
+                 type=1,
+                 ticks_per_beat=DEFAULT_TICKS_PER_BEAT,
                  charset='latin1',
                  debug=False,
                  clip=False,
-                 tracks=None
-                 ):
+                 tracks=None):
 
         self.filename = filename
         self.type = type
@@ -343,8 +383,7 @@ class MidiFile(object):
             if self.debug:
                 _dbg('Header:')
 
-            (self.type,
-             num_tracks,
+            (self.type, num_tracks,
              self.ticks_per_beat) = read_file_header(infile)
 
             if self.debug:
@@ -356,9 +395,11 @@ class MidiFile(object):
                 if self.debug:
                     _dbg('Track {}:'.format(i))
 
-                self.tracks.append(read_track(infile,
-                                              debug=self.debug,
-                                              clip=self.clip))
+                current_track = read_track(infile,
+                                           debug=self.debug,
+                                           clip=self.clip)
+                if current_track:
+                    self.tracks.append(current_track)
                 # TODO: used to ignore EOFError. I hope things still work.
 
     @property
@@ -449,8 +490,7 @@ class MidiFile(object):
 
     def _save(self, outfile):
         with meta_charset(self.charset):
-            header = struct.pack('>hhh', self.type,
-                                 len(self.tracks),
+            header = struct.pack('>hhh', self.type, len(self.tracks),
                                  self.ticks_per_beat)
 
             write_chunk(outfile, b'MThd', header)
