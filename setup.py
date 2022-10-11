@@ -8,7 +8,7 @@ here = os.path.abspath(os.path.dirname(__file__))
 def get_about():
     about = {}
 
-    path = os.path.join(here, 'mido', '__about__.py')
+    path = os.path.join(here, 'mido_fix', '__about__.py')
     with open(path, 'rt') as aboutfile:
         exec(aboutfile.read(), about)
 
@@ -40,8 +40,8 @@ setup(
     url=about['__url__'],
     license=about['__license__'],
     package_data={'': ['LICENSE']},
-    package_dir={'mido_fix': 'mido'},
-    packages=['mido', 'mido.backends'],
+    package_dir={'mido_fix': 'mido_fix'},
+    packages=['mido_fix', 'mido_fix.backends'],
     scripts=[
         'bin/mido-play', 'bin/mido-ports', 'bin/mido-serve', 'bin/mido-connect'
     ],
