@@ -40,7 +40,7 @@ setup(
     url=about['__url__'],
     license=about['__license__'],
     package_data={'': ['LICENSE']},
-    package_dir={'mido': 'mido'},
+    package_dir={'mido_fix': 'mido'},
     packages=['mido', 'mido.backends'],
     scripts=[
         'bin/mido-play', 'bin/mido-ports', 'bin/mido-serve', 'bin/mido-connect'
