@@ -29,7 +29,7 @@ elif sys.argv[-1] == "docs":
 
 setup(
     name='mido_fix',
-    version='1.2.11',
+    version='1.2.12',
     description='MIDI Objects for Python',
     long_description=open('README.rst', 'rt').read(),
     author=about['__author__'],
